@@ -1,0 +1,17 @@
+{
+    "automations": [
+        {
+            "duration": 123,
+            "password": "123",
+            "character": "123",
+            "isStartTime": false,
+            "name": "123",
+            "startTime": 1749963480945,
+            "disabled": false,
+            "isRepeted": false,
+            "interval": 1344,
+            "user": "123",
+            "scenarioId": 1
+        }
+    ]
+}

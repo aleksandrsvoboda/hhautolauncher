@@ -1,6 +1,5 @@
 package core.hhrunner;
 
-import json.JSONArray;
 import json.JSONObject;
 
 import java.io.*;
@@ -25,17 +24,17 @@ public class Task {
         return df.format(currentDate);
     }
     public String name;
-    public Scenario scenario;
+    public Automation automation;
     Process p = null;
     public long start;
     public long stop;
     File bot_config;
 
-    public Task(long start, Scenario scenario) {
-        this.scenario = scenario;
-        this.name = scenario.name;
+    public Task(long start, Automation automation) {
+        this.automation = automation;
+        this.name = automation.name;
         this.start = start;
-        this.stop = start + ((long) scenario.duration * 60 * 1000);p = null;
+        this.stop = start + ((long) automation.duration * 60 * 1000);p = null;
     }
 
     public boolean isWork(){
@@ -91,11 +90,10 @@ public class Task {
     private void write(String path){
 
         JSONObject obj = new JSONObject ();
-        obj.put ( "user", scenario.user );
-        obj.put ( "password", scenario.password );
-        obj.put ( "character", scenario.character );
-        obj.put ( "bot", scenario.bot );
-        obj.put ( "nomad", scenario.nomad );
+        obj.put ( "user", automation.user );
+        obj.put ( "password", automation.password );
+        obj.put ( "character", automation.character );
+        obj.put ( "scenarioId", automation.scenarioId );
 
 
         try ( FileWriter file = new FileWriter ( path ) ) {
