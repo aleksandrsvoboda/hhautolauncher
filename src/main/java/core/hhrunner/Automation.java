@@ -5,7 +5,7 @@ public class Automation {
     public String user;
     public String password;
     public String character;
-    public int scenarioId; // used to reference Scenario
+    public int scenarioId;
     public boolean isStartTime = false;
 
     public long startTime = 0;

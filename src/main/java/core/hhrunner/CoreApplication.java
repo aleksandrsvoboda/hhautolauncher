@@ -76,9 +76,7 @@ public class CoreApplication extends Application {
     Process p;
 
     HashMap<String,Automation> automations = new HashMap<>();
-    // Holds loaded scenarios from file (do not edit these)
     HashMap<Integer, Scenario> loadedScenarios = new HashMap<>();
-    // Used to select scenario for an automation
     ListView<String> scenarioPicker;
     ComboBox<String> automationComboBox;
 
@@ -227,7 +225,6 @@ public class CoreApplication extends Application {
         auto.user = user.getText();
         auto.password = password.getText();
         auto.character = character.getText();
-        // Use selected scenario ID from scenarioPicker ComboBox (see UI below)
         String selectedScenario = scenarioPicker.getSelectionModel().getSelectedItem();
         if (selectedScenario != null && selectedScenario.contains("ID:")) {
             auto.scenarioId = Integer.parseInt(selectedScenario.replaceAll("[^0-9]", ""));
@@ -697,7 +694,6 @@ public class CoreApplication extends Application {
     private ObservableList<String> loadScenariosFromNurglingFile() {
         ObservableList<String> scenarioNames = FXCollections.observableArrayList();
         loadedScenarios.clear();
-        // load from actual scenario file
         String path = getScenarioFilePath();
         File file = new File(path);
         if (file.exists()) {
@@ -720,21 +716,20 @@ public class CoreApplication extends Application {
     }
 
     private static String getScenarioFilePath() {
-        // Windows location: %APPDATA%\Haven and Hearth\data\..\scenarios.nurgling.json
         String appdata = System.getenv("APPDATA");
         if (appdata != null) {
             File base = new File(appdata, "Haven and Hearth/data");
             if (!base.exists()) {
                 base.mkdirs();
             }
-            // Go up one directory from "data" and append the file name
-            File parent = base.getParentFile(); // This gives you "Haven and Hearth"
+
+            File parent = base.getParentFile();
             if (parent != null) {
                 File scenarioFile = new File(parent, "scenarios.nurgling.json");
                 return scenarioFile.getAbsolutePath();
             }
         }
-        // Fallback for Unix: ~/.haven/data/../scenarios.nurgling.json
+
         String userHome = System.getProperty("user.home");
         if (userHome != null) {
             File base = new File(userHome, ".haven/data");
