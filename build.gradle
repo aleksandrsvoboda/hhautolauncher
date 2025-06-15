@@ -33,15 +33,10 @@ javafx {
     modules = ['javafx.controls', 'javafx.fxml']
 }
 
-//mainClassName="$moduleName/HelloApplication"
-//
 jar {
     duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
     manifest {
         attributes 'Main-Class': 'core.hhrunner.Main'
-    }
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
 }
 

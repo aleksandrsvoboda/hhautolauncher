@@ -30,7 +30,6 @@ public class Configuration {
     boolean isJava18 = false;
     Path javaPath = new Path();
     Path hafenPath = new Path();
-    // Config and Calibration for nurgling
 
     public Configuration() {
 

@@ -10,7 +10,6 @@ import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.chart.PieChart;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
@@ -27,7 +26,6 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CoreApplication extends Application {
@@ -72,14 +70,15 @@ public class CoreApplication extends Application {
         isStartTime.setSelected(false);
         dataPicker.setTime(0);
         nomadPath.setText("");
-        scenariosCombobox.setItems(FXCollections.observableArrayList(scenarios.keySet()));
+        automationComboBox.setItems(FXCollections.observableArrayList(automations.keySet()));
     }
 
     Process p;
 
-    HashMap<String,Scenario> scenarios = new HashMap<>();
-
-    ComboBox<String> scenariosCombobox;
+    HashMap<String,Automation> automations = new HashMap<>();
+    HashMap<Integer, Scenario> loadedScenarios = new HashMap<>();
+    ListView<String> scenarioPicker;
+    ComboBox<String> automationComboBox;
 
     public AtomicBoolean isWork = new AtomicBoolean(false);
     Thread th = null;
@@ -88,9 +87,9 @@ public class CoreApplication extends Application {
         public Worker(String path) {
             this.path = path;
             long time = System.currentTimeMillis();
-            for(String ket: scenarios.keySet()){
-                Scenario res = scenarios.get(ket);
-                tasks.add(new Task((res.isStartTime)? res.startTime : time,res));
+            for(String key : automations.keySet()){
+                Automation auto = automations.get(key);
+                tasks.add(new Task((auto.isStartTime) ? auto.startTime : time, auto));
             }
             table.setItems( FXCollections.observableArrayList(tasks));
             isWork.set(true);
@@ -115,8 +114,8 @@ public class CoreApplication extends Application {
                     }else if (task.isWork() && task.stop<=time){
                         task.stopProcess();
                         forDelete.add(task);
-                        if(task.scenario.isRepeted)
-                            forAdding.add(new Task(task.start+ (long) task.scenario.interval *60*1000,task.scenario));
+                        if(task.automation.isRepeted)
+                            forAdding.add(new Task(task.start+ (long) task.automation.interval *60*1000,task.automation));
                     }
                 }
                 for(Task task: forDelete){
@@ -146,25 +145,25 @@ public class CoreApplication extends Application {
     public void write (String path) {
 
         JSONObject obj = new JSONObject ();
-        JSONArray jscenarios = new JSONArray ();
-        for ( String key : scenarios.keySet() ) {
-            Scenario res = scenarios.get(key);
-            JSONObject userobj = new JSONObject ();
-            userobj.put ( "name", res.name );
-            userobj.put ( "user", res.user );
-            userobj.put ( "password", res.password );
-            userobj.put ( "character", res.character );
-            userobj.put ( "bot", res.bot );
-            userobj.put ( "isStartTime", res.isStartTime );
-            userobj.put ( "time", res.startTime );
-            userobj.put ( "disabled", res.disabled );
-            userobj.put ( "isRepeted", res.isRepeted );
-            userobj.put ( "duration", res.duration );
-            userobj.put ( "interval", res.interval );
-            userobj.put ( "nomad", res.nomad );
-            jscenarios.add ( userobj );
+        JSONArray jAutomations = new JSONArray ();
+
+        for (String key : automations.keySet()) {
+            Automation auto = automations.get(key);
+            JSONObject objAuto = new JSONObject();
+            objAuto.put("name", auto.name);
+            objAuto.put("user", auto.user);
+            objAuto.put("password", auto.password);
+            objAuto.put("character", auto.character);
+            objAuto.put("scenarioId", auto.scenarioId); // references loaded scenario
+            objAuto.put("isStartTime", auto.isStartTime);
+            objAuto.put("startTime", auto.startTime);
+            objAuto.put("disabled", auto.disabled);
+            objAuto.put("isRepeted", auto.isRepeted);
+            objAuto.put("duration", auto.duration);
+            objAuto.put("interval", auto.interval);
+            jAutomations.add(objAuto);
         }
-        obj.put("scenarios",jscenarios);
+        obj.put("automations", jAutomations);
 
 
         try ( FileWriter file = new FileWriter ( path ) ) {
@@ -184,33 +183,30 @@ public class CoreApplication extends Application {
             JSONParser parser = new JSONParser();
             JSONObject jsonObject = ( JSONObject ) parser.parse ( reader );
 
-            JSONArray msg = ( JSONArray ) jsonObject.get ( "scenarios" );
+            JSONArray msg = (JSONArray) jsonObject.get("automations");
             if(msg!=null) {
                 Iterator<JSONObject> iterator = msg.iterator();
                 while (iterator.hasNext()) {
                     JSONObject item = iterator.next();
-                    Scenario res = new Scenario();
-                    res.name = item.get("name").toString();
-                    res.user = item.get("user").toString();
-                    res.password = item.get("password").toString();
-                    res.character = item.get("character").toString();
-                    res.bot = item.get("bot").toString();
-                    res.isStartTime = (boolean)item.get("isStartTime");
-                    if(item.get("time")!=null) {
-                        res.startTime = (long) item.get("time");
-                    }
-                    res.disabled = (boolean)item.get("disabled");
-                    res.isRepeted = (boolean)item.get("isRepeted");
-                    res.duration =(int)((long)item.get("duration"));
-                    res.interval = (int)((long)item.get("interval"));
-                    res.nomad = item.get("nomad").toString();
-                    scenarios.put(res.name,res);
+                    Automation auto = new Automation();
+                    auto.name = item.get("name").toString();
+                    auto.user = item.get("user").toString();
+                    auto.password = item.get("password").toString();
+                    auto.character = item.get("character").toString();
+                    auto.scenarioId = ((Number) item.get("scenarioId")).intValue();
+                    auto.isStartTime = (boolean)item.get("isStartTime");
+                    if(item.get("startTime") != null) auto.startTime = (long)item.get("startTime");
+                    auto.disabled = (boolean)item.get("disabled");
+                    auto.isRepeted = (boolean)item.get("isRepeted");
+                    auto.duration = ((Number)item.get("duration")).intValue();
+                    auto.interval = ((Number)item.get("interval")).intValue();
+                    automations.put(auto.name, auto);
                 }
 
-                if(scenarios.size()>0){
-                    scenariosCombobox.setItems(FXCollections.observableArrayList(scenarios.keySet()));
-                    for(String key: scenarios.keySet()){
-                        scenariosCombobox.getSelectionModel().select(key);
+                if(automations.size()>0){
+                    automationComboBox.setItems(FXCollections.observableArrayList(automations.keySet()));
+                    for(String key: automations.keySet()){
+                        automationComboBox.getSelectionModel().select(key);
                         break;
                     }
                 }
@@ -223,52 +219,54 @@ public class CoreApplication extends Application {
         }
     }
 
-    private Scenario build(){
-        Scenario res = new Scenario();
-        res.name = title.getText();
-        res.user = user.getText();
-        res.password = password.getText();
-        res.character = character.getText();
-        res.bot = list.getSelectionModel().getSelectedItem();
-        res.isStartTime = isStartTime.isSelected();
-        res.startTime = dataPicker.getTime();
-        res.disabled = disable.isSelected();
-        res.isRepeted = isRepeted.isSelected();
-        res.duration = Integer.parseInt(duration.getText());
-        res.interval = Integer.parseInt(range.getText());
-        res.nomad = nomadPath.getText();
-        return res;
+    private Automation build() {
+        Automation auto = new Automation();
+        auto.name = title.getText();
+        auto.user = user.getText();
+        auto.password = password.getText();
+        auto.character = character.getText();
+        String selectedScenario = scenarioPicker.getSelectionModel().getSelectedItem();
+        if (selectedScenario != null && selectedScenario.contains("ID:")) {
+            auto.scenarioId = Integer.parseInt(selectedScenario.replaceAll("[^0-9]", ""));
+        }
+        auto.isStartTime = isStartTime.isSelected();
+        auto.startTime = dataPicker.getTime();
+        auto.disabled = disable.isSelected();
+        auto.isRepeted = isRepeted.isSelected();
+        auto.duration = Integer.parseInt(duration.getText());
+        auto.interval = Integer.parseInt(range.getText());
+        return auto;
     }
 
     public void add(){
-        Scenario res = build();
-        scenarios.put(res.name,res);
-        scenariosCombobox.setItems(FXCollections.observableArrayList(scenarios.keySet()));
-        scenariosCombobox.getSelectionModel().select(res.name);
+        Automation res = build();
+        automations.put(res.name,res);
+        automationComboBox.setItems(FXCollections.observableArrayList(automations.keySet()));
+        automationComboBox.getSelectionModel().select(res.name);
     }
 
     public void save(){
-        Scenario res = build();
-        scenarios.put(res.name,res);
-        scenariosCombobox.setItems(FXCollections.observableArrayList(scenarios.keySet()));
-        scenariosCombobox.getSelectionModel().select(res.name);
+        Automation res = build();
+        automations.put(res.name,res);
+        automationComboBox.setItems(FXCollections.observableArrayList(automations.keySet()));
+        automationComboBox.getSelectionModel().select(res.name);
     }
     public void show(String name){
 
-        Scenario res = scenarios.get(name);
-        if(res!=null) {
-            title.setText(res.name);
-            user.setText(res.user);
-            password.setText(res.password);
-            character.setText(res.character);
-            list.getSelectionModel().select(res.bot);
-            isStartTime.setSelected(res.isStartTime);
-            dataPicker.setTime(res.startTime);
-            disable.setSelected(res.disabled);
-            isRepeted.setSelected(res.isRepeted);
-            duration.setText(String.valueOf(res.duration));
-            range.setText(String.valueOf(res.interval));
-            nomadPath.setText(res.nomad);
+        Automation auto = automations.get(name);
+        if(auto != null) {
+            title.setText(auto.name);
+            user.setText(auto.user);
+            password.setText(auto.password);
+            character.setText(auto.character);
+
+            for (Scenario sc : loadedScenarios.values()) {
+                String display = sc.name + " (ID: " + sc.id + ")";
+                if (sc.id == auto.scenarioId) {
+                    scenarioPicker.getSelectionModel().select(display);
+                    break;
+                }
+            }
         }
     }
 
@@ -288,7 +286,7 @@ public class CoreApplication extends Application {
         openn.setOnAction(new EventHandler<ActionEvent>() {
                               @Override
                               public void handle(ActionEvent event) {
-                                  scenarios.clear();
+                                  automations.clear();
                                   clear();
                               }
 
@@ -304,7 +302,7 @@ public class CoreApplication extends Application {
                 fileChooser.setInitialDirectory(new File("./"));
                 File file = fileChooser.showOpenDialog(stage);
                 if(file!=null && file.exists()) {
-                    scenarios.clear();
+                    automations.clear();
                     read(file.getPath());
                 }
             }
@@ -369,9 +367,9 @@ public class CoreApplication extends Application {
         menu1.getItems().addAll(openn, openi, savei, config);
 
         ObservableList<String> langs = FXCollections.observableArrayList();
-        scenariosCombobox = new ComboBox<String>(langs);
-        scenariosCombobox.setMinWidth(620);
-        scenariosCombobox.valueProperty().addListener(new ChangeListener<String>() {
+        automationComboBox = new ComboBox<String>(langs);
+        automationComboBox.setMinWidth(620);
+        automationComboBox.valueProperty().addListener(new ChangeListener<String>() {
             @Override public void changed(ObservableValue ov, String t, String t1) {
                 if(t1!=null) {
                     show(t1);
@@ -386,11 +384,11 @@ public class CoreApplication extends Application {
         VBox.setMargin(centrallayout, new Insets(5,5,5,10));
         centrallayout.setSpacing(5);
         centrallayout.getChildren().add(new Label("Task:"));
-        centrallayout.getChildren().add(scenariosCombobox);
+        centrallayout.getChildren().add(automationComboBox);
 
         /// Слой заголовка
         HBox titleBox  = new HBox();
-        titleBox.getChildren().add(new Label("Scenario name"));
+        titleBox.getChildren().add(new Label("Automation name"));
         title = new TextField();
         titleBox.setSpacing(100);
         titleBox.setAlignment(Pos.CENTER_RIGHT);
@@ -536,15 +534,17 @@ public class CoreApplication extends Application {
         scenarioBox.setSpacing(7);
         scenarioBox.getChildren().add(propBox);
 
+        ObservableList<String> scenarioNames = loadScenariosFromNurglingFile();
+
         VBox rightBox = new VBox();
-        list = new ListView<String>();
-        ObservableList<String> items =FXCollections.observableArrayList (
-                "Dreamer", "Candleberry", "Steel", "Smelter", "Clay", "Truffle", "GobFinder", "Dryer", "Tanning", "CheeseCellar", "CheeseHome", "CheeseOutside", "CheeseMine", "CheeseBarters", "CowsCurd", "GoatsCurd", "SheepsCurd");
-        list.setItems(items);
-        list.setMinHeight(320);
-        list.setMaxHeight(390);
-        rightBox.getChildren().add(new Label("Available bots:"));
-        rightBox.getChildren().add(list);
+        scenarioPicker = new ListView<>(scenarioNames);
+        ObservableList<String> items = loadScenariosFromNurglingFile();
+        scenarioPicker.setItems(items);
+        scenarioPicker.setMinWidth(300);
+        scenarioPicker.setMinHeight(320);
+        scenarioPicker.setMaxHeight(390);
+        rightBox.getChildren().add(new Label("Available scenarios:"));
+        rightBox.getChildren().add(scenarioPicker);
         rightBox.setSpacing(7);
         HBox buttonBox = new HBox();
         buttonBox.setSpacing(7);
@@ -553,7 +553,7 @@ public class CoreApplication extends Application {
         add.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                if(list.getSelectionModel().getSelectedItem()!=null)
+                if (scenarioPicker.getSelectionModel().getSelectedItem() != null)
                     add();
             }
         });
@@ -561,7 +561,7 @@ public class CoreApplication extends Application {
         save.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                if(list.getSelectionModel().getSelectedItem()!=null)
+                if (scenarioPicker.getSelectionModel().getSelectedItem() != null)
                     save();
             }
         });
@@ -569,11 +569,11 @@ public class CoreApplication extends Application {
         delete.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                scenarios.remove(scenariosCombobox.getSelectionModel().getSelectedItem());
-                if(scenarios.size()>0){
-                    scenariosCombobox.setItems(FXCollections.observableArrayList(scenarios.keySet()));
-                    for(String key: scenarios.keySet()){
-                        scenariosCombobox.getSelectionModel().select(key);
+                automations.remove(automationComboBox.getSelectionModel().getSelectedItem());
+                if(automations.size()>0){
+                    automationComboBox.setItems(FXCollections.observableArrayList(automations.keySet()));
+                    for(String key: automations.keySet()){
+                        automationComboBox.getSelectionModel().select(key);
                         break;
                     }
                 }else{
@@ -616,7 +616,7 @@ public class CoreApplication extends Application {
         startb.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                if(!scenarios.isEmpty()) {
+                if(!automations.isEmpty()) {
                     th = new Thread(new Worker("./hafen.jar"));
                     th.start();
                     scenarioBox.setDisable(true);
@@ -690,6 +690,61 @@ public class CoreApplication extends Application {
         cacpbox.getChildren().add(configSelect);
         return cacpbox;
     }
+
+    private ObservableList<String> loadScenariosFromNurglingFile() {
+        ObservableList<String> scenarioNames = FXCollections.observableArrayList();
+        loadedScenarios.clear();
+        String path = getScenarioFilePath();
+        File file = new File(path);
+        if (file.exists()) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF-8"))) {
+                JSONParser parser = new JSONParser();
+                JSONObject main = (JSONObject) parser.parse(reader);
+                JSONArray array = (JSONArray) main.get("scenarios");
+                for (Object o : array) {
+                    JSONObject item = (JSONObject) o;
+                    int id = ((Number) item.get("id")).intValue();
+                    String name = item.get("name").toString();
+                    loadedScenarios.put(id, new Scenario(id, name));
+                    scenarioNames.add(name + " (ID: " + id + ")");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return scenarioNames;
+    }
+
+    private static String getScenarioFilePath() {
+        String appdata = System.getenv("APPDATA");
+        if (appdata != null) {
+            File base = new File(appdata, "Haven and Hearth/data");
+            if (!base.exists()) {
+                base.mkdirs();
+            }
+
+            File parent = base.getParentFile();
+            if (parent != null) {
+                File scenarioFile = new File(parent, "scenarios.nurgling.json");
+                return scenarioFile.getAbsolutePath();
+            }
+        }
+
+        String userHome = System.getProperty("user.home");
+        if (userHome != null) {
+            File base = new File(userHome, ".haven/data");
+            if (!base.exists()) {
+                base.mkdirs();
+            }
+            File parent = base.getParentFile();
+            if (parent != null) {
+                File scenarioFile = new File(parent, "scenarios.nurgling.json");
+                return scenarioFile.getAbsolutePath();
+            }
+        }
+        throw new RuntimeException("Unable to resolve scenario file path");
+    }
+
 
     public static void main(String[] args) {
         launch();
