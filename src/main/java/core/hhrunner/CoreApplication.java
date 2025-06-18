@@ -38,8 +38,6 @@ public class CoreApplication extends Application {
 
     TextField range;
 
-    TextField duration;
-
     CheckBox disable;
     CheckBox isRepeted;
     CheckBox isStartTime;
@@ -64,7 +62,6 @@ public class CoreApplication extends Application {
         password.setText("");
         character.setText("");
         range.setText("0");
-        duration.setText("0");
         disable.setSelected(false);
         isRepeted.setSelected(false);
         isStartTime.setSelected(false);
@@ -102,41 +99,21 @@ public class CoreApplication extends Application {
         public void run() {
             while (isWork.get()){
                 long time = System.currentTimeMillis();
-                ArrayList<Task> forDelete = new ArrayList<>();
                 ArrayList<Task> forAdding = new ArrayList<>();
-                for(Task task: tasks){
+                for(Task task: tasks) {
                     if(!task.isWork() && task.start<=time){
                         try {
                             task.startProcess(Configuration.getInstance().hafenPath.value);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    }else if (task.isWork() && task.stop<=time){
-                        task.stopProcess();
-                        forDelete.add(task);
+                    }else if (task.isWork()){
                         if(task.automation.isRepeted)
-                            forAdding.add(new Task(task.start+ (long) task.automation.interval *60*1000,task.automation));
+                            forAdding.add(new Task(task.start + (long) task.automation.interval *60*1000,task.automation));
                     }
                 }
-                for(Task task: forDelete){
-                    tasks.remove(task);
-                }
-                tasks.addAll(forAdding);
-                if(!forDelete.isEmpty() || !forAdding.isEmpty()){
-                    table.setItems( FXCollections.observableArrayList(tasks));
-                }
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
             }
-            for(Task task: tasks){
-                if(task.isWork())
-                {
-                    task.stopProcess();
-                }
-            }
+
             tasks.clear();
             table.setItems( FXCollections.observableArrayList(tasks));
         }
@@ -159,7 +136,6 @@ public class CoreApplication extends Application {
             objAuto.put("startTime", auto.startTime);
             objAuto.put("disabled", auto.disabled);
             objAuto.put("isRepeted", auto.isRepeted);
-            objAuto.put("duration", auto.duration);
             objAuto.put("interval", auto.interval);
             jAutomations.add(objAuto);
         }
@@ -198,7 +174,6 @@ public class CoreApplication extends Application {
                     if(item.get("startTime") != null) auto.startTime = (long)item.get("startTime");
                     auto.disabled = (boolean)item.get("disabled");
                     auto.isRepeted = (boolean)item.get("isRepeted");
-                    auto.duration = ((Number)item.get("duration")).intValue();
                     auto.interval = ((Number)item.get("interval")).intValue();
                     automations.put(auto.name, auto);
                 }
@@ -211,8 +186,6 @@ public class CoreApplication extends Application {
                     }
                 }
             }
-
-
         }
         catch ( IOException | json.parser.ParseException e ) {
             e.printStackTrace ();
@@ -233,7 +206,6 @@ public class CoreApplication extends Application {
         auto.startTime = dataPicker.getTime();
         auto.disabled = disable.isSelected();
         auto.isRepeted = isRepeted.isSelected();
-        auto.duration = Integer.parseInt(duration.getText());
         auto.interval = Integer.parseInt(range.getText());
         return auto;
     }
@@ -451,30 +423,12 @@ public class CoreApplication extends Application {
         rangeBox.getChildren().add(fillerr);
         rangeBox.getChildren().add(range);
 
-        HBox durationBox  = new HBox();
-        durationBox.getChildren().add(new Label("Duration(min.)"));
-        duration = new TextField();
-        duration.textProperty().addListener(new ChangeListener<String>() {
-            @Override
-            public void changed(ObservableValue<? extends String> observable, String oldValue,
-                                String newValue) {
-                if (!newValue.matches("\\d*")) {
-                    duration.setText(newValue.replaceAll("[^\\d]", ""));
-                }
-            }
-        });
-
-        duration.setPrefWidth(200);
-        duration.setText("0");
         Region fillerd = new Region();
         HBox.setHgrow(fillerd, Priority.ALWAYS);
-        durationBox.getChildren().add(fillerd);
-        durationBox.getChildren().add(duration);
 
         propBox.getChildren().add(userBox);
         propBox.getChildren().add(passwordBox);
         propBox.getChildren().add(characterBox);
-        propBox.getChildren().add(durationBox);
 
         isRepeted = new CheckBox("Repeat");
         propBox.getChildren().add(isRepeted);
